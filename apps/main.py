@@ -1,9 +1,10 @@
 import dash
-import pandas as pd
 from dash import dcc, html
 import plotly.graph_objs as go
+import pandas as pd
 import numpy as np
-
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import train_test_split
 from clean_health_data import load_and_clean_data
 
 
@@ -84,10 +85,10 @@ app = dash.Dash(__name__)
 
 
 
-pieChartCategories = ['Cars', 'Factories', 'Other']
+pieChartCategories = ['Motor road transport',  'Other']
 barChartCategories = ['10<', '10-18', '18-25', '25-40', '40-60', '60+']
 
-values1 = [190, 48, 55]
+values1 = [190, 103]
 values2 = [32, 42, 20, 18, 22, 45]
 
 x_scatter = np.random.rand(100) * 10 
@@ -212,7 +213,7 @@ for reason in data_long['Reason'].unique():
 
 
 fig4.update_layout(
-    title='Sickness Absenteeism by Reason (2009 - 2022)',
+    title='Absenteeism by Reason (2009 - 2022)',
     template='plotly_dark',
     plot_bgcolor='rgba(0, 0, 0, 0)',
     paper_bgcolor='rgba(0, 0, 0, 0)',
@@ -255,17 +256,31 @@ xcal = np.linspace(0, 10, 100)
 yinv = np.exp(-xcal)
 
 
-fig_inv = go.Figure(go.Scatter(x=xinv, y=yinv, mode='lines', name='Inverse Exponential'))
+
+def reciprocal(x, A, B):
+    return A / (x + B)
+
+# Generate the x values for the number of e-bikes (range 0 to 10, you can adjust as needed)
+xinv = np.linspace(1, 10, 100)  # Avoid division by zero by starting at x=1
+A = 100  # Set a value for A (vertical stretch)
+B = 1    # Set a value for B (horizontal shift)
+
+# Calculate y values based on the reciprocal function
+yinv = reciprocal(xinv, A, B)
+
+# Create the figure for the plot
+fig_inv = go.Figure(go.Scatter(x=xinv, y=yinv, mode='lines', name='Reciprocal Decay'))
+
+# Update layout for aesthetics and titles
 fig_inv.update_layout(
-    title='Scenario: Number of e-bikes/<br>e-scooters increase',
+    title='Scenario: Number of e-bikes/e-scooters increase',
     template='plotly_dark',
     plot_bgcolor='rgba(0, 0, 0, 0)',
     paper_bgcolor='rgba(0, 0, 0, 0)', 
     font=dict(color='white'),
     xaxis=dict(title='Number of e-Bikes', showgrid=False, zeroline=True, showline=True, linewidth=1, linecolor='white'),
-    yaxis=dict(title='Respiratory health cases logarithmic', showgrid=False, zeroline=True, showline=True, linewidth=1, linecolor='white'),
-    title_x=0.5,  
-    margin=dict(l=80, r=80, t=100, b=70)  
+    yaxis=dict(title='AQI', showgrid=False, zeroline=True, showline=True, linewidth=1, linecolor='white'),
+    title_x=0.5
 )
 
 
@@ -283,28 +298,7 @@ fig_inv2.update_layout(
 )
 
 
-gauge_fig = go.Figure(go.Indicator(
-    mode="gauge+number+delta",
-    value=0.85, 
-    title={"text": "correlation coefficient AQI vs Work Abstenesim"},
-    gauge={
-        "axis": {"range": [0, 1]}, 
-        "bar": {"color": "green"}, 
-        "steps": [
-            {"range": [0, 0.3], "color": "red"},  
-            {"range": [0.3, 0.6], "color": "yellow"}, 
-            {"range": [0.6, 1], "color": "green"}
-        ],
-    },
-    number={"font": {"size": 40}}, 
-))
-gauge_fig.update_layout(
-    template="plotly_dark",
-    plot_bgcolor='rgba(0, 0, 0, 0)',
-    paper_bgcolor='rgba(0, 0, 0, 0)',
-    font=dict(color='white'),
-    title_x=0.5
-)
+
 
 gauge_fig2 = go.Figure(go.Indicator(
     mode="gauge+number+delta",
@@ -376,21 +370,94 @@ figlond.update_layout(
 
 fig7 = go.Figure()
 fig7.add_trace(go.Scatter(x=x_scatter, y=y_scatter, mode='markers', name='Data Points'))
+
+
 fig7.add_trace(go.Scatter(x=x_scatter, y=y_regression, mode='lines', name='Regression Line', line=dict(color='red')))
 
 fig7.update_layout(
-    title='AQI vs Work Absenteeism',
+    title='AQI vs Respiratory Health Cases',
+    template='plotly_dark',
+    plot_bgcolor='rgba(0, 0, 0, 0)',  
+    paper_bgcolor='rgba(0, 0, 0, 0)',  
+    font=dict(color='white'),
+    xaxis=dict(title='AQI Levels', showgrid=False, zeroline=True, showline=True, linewidth=1, linecolor='white'),
+    yaxis=dict(title='Work Abstenesim', showgrid=False, zeroline=True, showline=True, linewidth=1, linecolor='white'),
+    title_x=0.5  # Center the title
+)
+
+
+# Load the data
+df = pd.read_csv('aqi_health_data.csv')  # replace 'your_data.csv' with your actual file path
+
+# Prepare data for regression
+X = df[['AQI']]  # Predictor: Average AQI
+y = df['NumHC']  # Target: Number of health cases
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Create a linear regression model and fit the data
+model = LinearRegression()
+model.fit(X_train, y_train)
+
+# Predict the health cases based on AQI
+y_pred = model.predict(X_test)
+
+# Scatter plot data (actual values)
+x_scatter = X_test.squeeze()  # AQI levels
+y_scatter = y_test  # Actual health cases
+
+# Regression line data (predicted values)
+y_regression = y_pred  # Predicted health cases from the regression model
+
+# Create a figure with scatter and regression line
+fig7 = go.Figure()
+
+# Add scatter plot
+fig7.add_trace(go.Scatter(x=x_scatter, y=y_scatter, mode='markers', name='Data Points'))
+
+# Add regression line
+fig7.add_trace(go.Scatter(x=x_scatter, y=y_regression, mode='lines', name='Regression Line', line=dict(color='red')))
+
+# Update layout with styling
+fig7.update_layout(
+    title='AQI vs Health Cases',
     template='plotly_dark',
     plot_bgcolor='rgba(0, 0, 0, 0)',
     paper_bgcolor='rgba(0, 0, 0, 0)',
     font=dict(color='white'),
     xaxis=dict(title='AQI Levels', showgrid=False, zeroline=True, showline=True, linewidth=1, linecolor='white'),
-    yaxis=dict(title='Work Absences', showgrid=False, zeroline=True, showline=True, linewidth=1, linecolor='white'),
-    margin=dict(l=50, r=140, t=100, b=70),
-    title_x=0.1,
-    width=430,  
-    height=400,  
+    yaxis=dict(title='Health Cases', showgrid=False, zeroline=True, showline=True, linewidth=1, linecolor='white'),
+    title_x=0.5
 )
+
+
+correlation_coefficient = np.corrcoef(df['AQI'], df['NumHC'])[0, 1]
+
+# Create the gauge figure
+gauge_fig = go.Figure(go.Indicator(
+    mode="gauge+number+delta",
+    value=correlation_coefficient,  # Set the value to the correlation coefficient
+    title={"text": "Correlation Coefficient: AQI vs Health Cases"},
+    gauge={
+        "axis": {"range": [0, 1]},  # Set the range for the gauge from 0 to 1
+        "bar": {"color": "green"},  # Color of the bar
+        "steps": [
+            {"range": [0, 0.3], "color": "red"},  # Low correlation (red)
+            {"range": [0.3, 0.6], "color": "yellow"},  # Moderate correlation (yellow)
+            {"range": [0.6, 1], "color": "green"}  # High correlation (green)
+        ],
+    },
+    number={"font": {"size": 40}},  # Set the font size of the number
+))
+gauge_fig.update_layout(
+    template="plotly_dark",
+    plot_bgcolor='rgba(0, 0, 0, 0)',
+    paper_bgcolor='rgba(0, 0, 0, 0)',
+    font=dict(color='white'),
+    title_x=0.5
+)
+
 
 
 fig8 = go.Figure()
@@ -459,13 +526,13 @@ app.layout = html.Div(style={'backgroundColor': '#000000', 'padding': '20px'}, c
     html.Div(style={'display': 'flex', 'justifyContent': 'center'}, children=[
         html.Div(children=[
             dcc.Graph(figure=fig7, style={'width': '100%', 'height': '400px'}),
-            html.P("Figure 7: Relationship between AQI levels and work absenteeism. As shown by the points and the regression line, there is a clear strong correlation.", 
+            html.P("Figure 7: Relationship between AQI levels and work absenteeism. As shown there is a clear strong correlation.", 
                    style={'color': 'white', 'textAlign': 'center'})
         ], style={'width': '32%'}),
 
         html.Div(children=[
             dcc.Graph(figure=gauge_fig, style={'width': '100%', 'height': '400px'}),
-            html.P("Figure 8: This diagram shows the correlation coeeficceint betweeen AQI levels and work absenteeism. The 0.85 value is close to 1 which suggests a very strong correlation.", 
+            html.P("Figure 8: This diagram shows a strong correlation (0.688) between AQI levels and work absenteeism.", 
                    style={'color': 'white', 'textAlign': 'center'})
         ], style={'width': '32%'}),
 
@@ -476,34 +543,11 @@ app.layout = html.Div(style={'backgroundColor': '#000000', 'padding': '20px'}, c
         ], style={'width': '32%'})
     ]),
 
-    # Fourth row of graphs
-    html.Div(style={'display': 'flex', 'justifyContent': 'center'}, children=[
-        html.Div(children=[
-            dcc.Graph(figure=fig8, style={'width': '100%', 'height': '400px'}),
-            html.P("Figure 10: Seasonal AQI trends in London.", 
-                   style={'color': 'white', 'textAlign': 'center'})
-        ], style={'width': '32%'}),
-
-        html.Div(children=[
-            dcc.Graph(figure=gauge_fig2, style={'width': '100%', 'height': '400px'}),
-            html.P("Figure 11: Gauge representation of AQI levels.", 
-                   style={'color': 'white', 'textAlign': 'center'})
-        ], style={'width': '32%'}),
-
-        html.Div(children=[
-            dcc.Graph(figure=fig_inv, style={'width': '100%', 'height': '400px'}),
-            html.P("Figure 12: Long-term effects of e-bike adoption on health cases.", 
-                   style={'color': 'white', 'textAlign': 'center'})
-        ], style={'width': '32%'})
-    ]),
-
-    # Fifth row: Full-width graph
-    html.Div(style={'display': 'flex', 'justifyContent': 'center'}, children=[
-        html.Div(children=[
-            dcc.Graph(figure=figlond, style={'width': '100%', 'height': '800px'}),
-            html.P("Figure 13: Comprehensive map of London air quality and health cases.", 
-                   style={'color': 'white', 'textAlign': 'center'})
-        ], style={'width': '100%'})
+    # Fifth row: Full-width image
+    html.Div(style={'display': 'flex', 'justifyContent': 'center', 'alignItems': 'center', 'flexDirection': 'column', 'padding': '20px'}, children=[
+        html.Img(src='assets/airQuality.png', style={'maxWidth': '100%', 'height': 'auto', 'borderRadius': '8px'}),
+        html.P("Figure 13: Shows what the Air Qulity is like during 05:00 AM,  a periopd whitout many cars",
+            style={'color': 'white', 'textAlign': 'center', 'marginTop': '10px'})
     ]),
 ])
 
