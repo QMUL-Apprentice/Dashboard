@@ -517,7 +517,7 @@ app.layout = html.Div(style={'backgroundColor': '#000000', 'padding': '20px'}, c
 
         html.Div(children=[
             dcc.Graph(figure=fig5, style={'width': '100%', 'height': '400px'}),
-            html.P("Figure 6: This Pie chart shows the main air pollution sources and their percentages. From the data, we can see that the main contirbutor are cars.", 
+            html.P("Figure 6: This Pie chart shows the main air pollution sources and their percentages. From the data, we can see that the main contributors are motor vehicles.", 
                    style={'color': 'white', 'textAlign': 'center'})
         ], style={'width': '32%'})
     ]),
